@@ -1,6 +1,6 @@
-# Airport Surface RL
+# Learning Conflict-Aware Control Policies for Airport Surface Operations
 
-COS435 / ECE433 — Hassan Khan, Keith Torpey, Biruk Desta
+COS435 — Hassan Khan, Keith Torpey, Biruk Desta
 
 A reinforcement learning agent for airport surface control. A centralized PPO agent jointly decides gate releases and intersection movement in a small synthetic taxiway network, learning to coordinate aircraft while minimizing delays and avoiding conflicts.
 
