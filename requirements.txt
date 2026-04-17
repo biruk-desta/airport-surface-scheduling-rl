@@ -1,0 +1,6 @@
+gymnasium==1.2.3
+stable-baselines3==2.8.0
+numpy==2.4.4
+networkx==3.6.1
+matplotlib==3.10.8
+torch==2.11.0
