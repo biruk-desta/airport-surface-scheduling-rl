@@ -10,5 +10,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+# experiment outputs (models, logs, results) — share via Drive if needed
+experiments/*
+!experiments/.gitkeep
+
 # macOS
 .DS_Store
