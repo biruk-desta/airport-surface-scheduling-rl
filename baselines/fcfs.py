@@ -1,39 +1,49 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from simulator import INTERSECTION, MAX_AIRCRAFT
+from simulator import INTERSECTION
 
 
 def _can_move(ac: dict, state: dict) -> bool:
-    # TODO: return True if this aircraft can legally advance this step.
-    # An aircraft can move if:
-    #   - ac["active"] is True
-    #   - ac["next_position"] is not None
-    #   - if ac["next_position"] == INTERSECTION, state["intersection_occupied"] must be False
-    #   - next_position is not occupied by any other active aircraft
-    #     (check state["aircraft"] for others at that position)
-    pass
+    if not ac["active"] or ac["next_position"] is None:
+        return False
+
+    next_position = ac["next_position"]
+    if next_position == INTERSECTION and state["intersection_occupied"]:
+        return False
+
+    return not any(
+        other["active"]
+        and other["id"] != ac["id"]
+        and other["position"] == next_position
+        for other in state["aircraft"]
+    )
 
 
 def fcfs_policy(state: dict) -> int:
-    # TODO: return the action (int) for the longest-waiting aircraft that can legally move.
-    #
-    # Steps:
-    #   1. Filter state["aircraft"] to active, non-done aircraft.
-    #   2. For each candidate (sorted by steps_waiting desc, then id asc),
-    #      check _can_move(). Pick the first one that passes.
-    #   3. Return (ac["id"] + 1) for the chosen aircraft, or 0 if none can move.
-    pass
+    candidates = [
+        ac for ac in state["aircraft"]
+        if ac["active"] and not ac["done"]
+    ]
+    candidates.sort(key=lambda ac: (-ac["steps_waiting"], ac["id"]))
+
+    for ac in candidates:
+        if _can_move(ac, state):
+            return ac["id"] + 1
+
+    return 0
 
 
 if __name__ == "__main__":
-    # TODO: quick smoke test — run one episode and print total reward + steps.
-    # from simulator import AirportSimulator
-    # sim = AirportSimulator(scenario="default")
-    # state = sim.reset()
-    # done, total_reward = False, 0
-    # while not done:
-    #     action = fcfs_policy(state)
-    #     state, reward, done, info = sim.step(action)
-    #     total_reward += reward
-    # print(f"FCFS | reward={total_reward:.1f} | steps={sim.step_count}")
-    pass
+    from simulator import AirportSimulator
+
+    sim = AirportSimulator(scenario="default")
+    state = sim.reset()
+    done = False
+    total_reward = 0.0
+
+    while not done:
+        action = fcfs_policy(state)
+        state, reward, done, _ = sim.step(action)
+        total_reward += reward
+
+    print(f"FCFS | reward={total_reward:.1f} | steps={sim.step_count}")

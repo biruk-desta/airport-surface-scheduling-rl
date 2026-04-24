@@ -3,41 +3,68 @@
 
 
 def mean_reward(results: list[dict]) -> float:
-    # TODO: return average of result["total_reward"] across all episodes.
-    pass
+    if not results:
+        return 0.0
+    return sum(result["total_reward"] for result in results) / len(results)
 
 
 def mean_taxi_time(results: list[dict]) -> float:
-    # TODO: return average of result["steps"] across all episodes. Lower is better.
-    pass
+    if not results:
+        return 0.0
+    return sum(result["steps"] for result in results) / len(results)
 
 
 def conflict_rate(results: list[dict]) -> float:
-    # TODO: return average of result["conflicts"] across all episodes.
-    pass
+    if not results:
+        return 0.0
+    return sum(result["conflicts"] for result in results) / len(results)
 
 
 def mean_throughput(results: list[dict]) -> float:
-    # TODO: return average of result["completions"] across all episodes. Higher is better.
-    pass
+    if not results:
+        return 0.0
+    return sum(result["completions"] for result in results) / len(results)
 
 
 def timeout_rate(results: list[dict]) -> float:
-    # TODO: return fraction of episodes where result["timed_out"] is True.
-    pass
+    if not results:
+        return 0.0
+    return sum(1 for result in results if result["timed_out"]) / len(results)
 
 
 def summary_table(results_by_policy: dict[str, list[dict]]) -> str:
-    # TODO: build and return a formatted comparison table string.
-    #
-    # For each policy name in results_by_policy, compute all 5 metrics above
-    # and format into a table with columns:
-    #   Policy | Mean Reward | Mean Steps | Conflicts/ep | Throughput | Timeout%
-    #
-    # Example output:
-    #   Policy           | Mean Reward | Mean Steps | Conflicts/ep | Throughput | Timeout%
-    #   -----------------|-------------|------------|--------------|------------|--------
-    #   PPO              |   -42.3     |    14.1    |     0.12     |    2.88    |  0.0%
-    #   FCFS             |   -61.2     |    19.4    |     0.31     |    2.69    |  2.0%
-    #   ConflictAware    |   -48.7     |    15.8    |     0.08     |    2.92    |  0.0%
-    pass
+    headers = [
+        "Policy",
+        "Mean Reward",
+        "Mean Steps",
+        "Conflicts/ep",
+        "Throughput",
+        "Timeout%",
+    ]
+
+    rows = []
+    for policy, results in results_by_policy.items():
+        rows.append([
+            policy,
+            f"{mean_reward(results):.1f}",
+            f"{mean_taxi_time(results):.1f}",
+            f"{conflict_rate(results):.2f}",
+            f"{mean_throughput(results):.2f}",
+            f"{timeout_rate(results) * 100:.1f}%",
+        ])
+
+    widths = [
+        max([len(headers[col])] + [len(row[col]) for row in rows])
+        for col in range(len(headers))
+    ]
+
+    def _format_row(values: list[str]) -> str:
+        return " | ".join(
+            value.ljust(width) if idx == 0 else value.rjust(width)
+            for idx, (value, width) in enumerate(zip(values, widths))
+        )
+
+    separator = "-+-".join("-" * width for width in widths)
+    lines = [_format_row(headers), separator]
+    lines.extend(_format_row(row) for row in rows)
+    return "\n".join(lines)

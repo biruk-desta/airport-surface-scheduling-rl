@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from simulator import AirportSimulator
+from simulator import AirportSimulator, MAX_STEPS
 from env.airport_env import AirportEnv
 from baselines.fcfs import fcfs_policy
 from baselines.conflict_aware import conflict_aware_policy
@@ -11,62 +11,124 @@ import csv
 
 
 def run_baseline_episodes(policy_fn, scenario: str, n_episodes: int = 200) -> list[dict]:
-    # TODO: run n_episodes using a baseline policy function (state dict -> action int).
-    #
-    # For each episode:
-    #   1. sim = AirportSimulator(scenario=scenario); state = sim.reset()
-    #   2. Loop: action = policy_fn(state); state, reward, done, info = sim.step(action)
-    #   3. Accumulate total_reward, conflicts, illegal_moves, completions each step.
-    #   4. On done: append result dict and start next episode.
-    #
-    # Result dict keys: total_reward, steps, conflicts, illegal_moves, completions, timed_out
-    # timed_out = True when sim.step_count == MAX_STEPS and not all aircraft done.
-    pass
+    results = []
+
+    for _ in range(n_episodes):
+        sim = AirportSimulator(scenario=scenario)
+        state = sim.reset()
+        done = False
+        total_reward = 0.0
+        conflicts = 0
+        illegal_moves = 0
+        completions = 0
+
+        while not done:
+            action = int(policy_fn(state))
+            state, reward, done, info = sim.step(action)
+            total_reward += reward
+            conflicts += info["conflicts"]
+            illegal_moves += info["illegal_moves"]
+            completions += info["completions"]
+
+        timed_out = sim.step_count >= MAX_STEPS and any(not ac.done for ac in sim.aircraft)
+        results.append({
+            "total_reward": total_reward,
+            "steps": sim.step_count,
+            "conflicts": conflicts,
+            "illegal_moves": illegal_moves,
+            "completions": completions,
+            "timed_out": timed_out,
+        })
+
+    return results
 
 
 def run_ppo_episodes(model, scenario: str, n_episodes: int = 200) -> list[dict]:
-    # TODO: run n_episodes using a trained SB3 PPO model.
-    #
-    # For each episode:
-    #   1. env = AirportEnv(scenario=scenario); obs, _ = env.reset()
-    #   2. Loop: action, _ = model.predict(obs, deterministic=True)
-    #            obs, reward, term, trunc, info = env.step(action)
-    #   3. Accumulate same metrics as run_baseline_episodes.
-    #   4. done = term or trunc
-    #
-    # Note: info dict from AirportEnv.step() is passed straight through from
-    # the simulator, so info["conflicts"], info["completions"] etc. are available.
-    pass
+    env = AirportEnv(scenario=scenario)
+    results = []
+
+    for _ in range(n_episodes):
+        obs, _ = env.reset()
+        done = False
+        total_reward = 0.0
+        conflicts = 0
+        illegal_moves = 0
+        completions = 0
+
+        while not done:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, term, trunc, info = env.step(int(action))
+            total_reward += reward
+            conflicts += info["conflicts"]
+            illegal_moves += info["illegal_moves"]
+            completions += info["completions"]
+            done = term or trunc
+
+        sim = env._sim
+        timed_out = sim.step_count >= MAX_STEPS and any(not ac.done for ac in sim.aircraft)
+        results.append({
+            "total_reward": total_reward,
+            "steps": sim.step_count,
+            "conflicts": conflicts,
+            "illegal_moves": illegal_moves,
+            "completions": completions,
+            "timed_out": timed_out,
+        })
+
+    env.close()
+    return results
 
 
 def save_csv(all_results: dict[str, list[dict]], path: str) -> None:
-    # TODO: write all episode results to a CSV at `path`.
-    # Columns: policy, episode, total_reward, steps, conflicts, completions, timed_out
-    # Use csv.DictWriter. Create parent directory if needed.
-    pass
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fieldnames = [
+        "policy",
+        "episode",
+        "total_reward",
+        "steps",
+        "conflicts",
+        "completions",
+        "timed_out",
+    ]
+
+    with open(path, "w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for policy, results in all_results.items():
+            for episode, result in enumerate(results, start=1):
+                writer.writerow({
+                    "policy": policy,
+                    "episode": episode,
+                    "total_reward": result["total_reward"],
+                    "steps": result["steps"],
+                    "conflicts": result["conflicts"],
+                    "completions": result["completions"],
+                    "timed_out": result["timed_out"],
+                })
 
 
 def main():
     scenario = "default"  # change to "dep_only" or "heavy" for Experiment 2
 
-    # TODO: load trained PPO model
-    # model = PPO.load("experiments/ppo_airport")
+    model_path = "experiments/ppo_airport"
+    if not (os.path.exists(model_path) or os.path.exists(f"{model_path}.zip")):
+        raise FileNotFoundError(
+            "Trained PPO model not found at experiments/ppo_airport(.zip). "
+            "Run python training/train.py first."
+        )
 
-    # TODO: build policies dict and run episodes for each
-    # policies = {
-    #     "FCFS":         lambda: run_baseline_episodes(fcfs_policy, scenario),
-    #     "ConflictAware": lambda: run_baseline_episodes(conflict_aware_policy, scenario),
-    #     "PPO":          lambda: run_ppo_episodes(model, scenario),
-    # }
-    # all_results = {name: fn() for name, fn in policies.items()}
+    model = PPO.load(model_path)
+    policies = {
+        "FCFS": lambda: run_baseline_episodes(fcfs_policy, scenario),
+        "ConflictAware": lambda: run_baseline_episodes(conflict_aware_policy, scenario),
+        "PPO": lambda: run_ppo_episodes(model, scenario),
+    }
+    all_results = {name: fn() for name, fn in policies.items()}
 
-    # TODO: print summary table
-    # print(summary_table(all_results))
+    print(summary_table(all_results))
 
-    # TODO: save CSV
-    # os.makedirs("experiments", exist_ok=True)
-    # save_csv(all_results, "experiments/results.csv")
-    pass
+    save_csv(all_results, "experiments/results.csv")
+    print("\nSaved episode results to experiments/results.csv")
 
 
 if __name__ == "__main__":
