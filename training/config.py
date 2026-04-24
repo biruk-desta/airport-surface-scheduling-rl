@@ -5,7 +5,7 @@ BASE_CONFIG = {
     "gamma":           0.99,    # discount factor
     "learning_rate":   3e-4,
     "clip_range":      0.2,     # PPO clip epsilon
-    "ent_coef":        0.01,    # entropy bonus coefficient (encourages exploration)
+    "ent_coef":        0.05,    # entropy bonus coefficient (encourages exploration)
     "total_timesteps": 500_000,
 }
 

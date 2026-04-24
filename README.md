@@ -40,6 +40,11 @@ python training/train.py
 python evaluation/evaluate.py
 ```
 
+**5. Generate plots**
+```bash
+python visualization/plots.py
+```
+
 ---
 
 ## File Structure
