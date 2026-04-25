@@ -4,104 +4,75 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from env.airport_env import AirportEnv
-from env.gate_only_wrapper import GateOnlyWrapper
-from training.config import BASE_CONFIG
+from experiments import MODELS, CHECKPOINT_DIR
+
+N_ENVS     = 4
+N_EVAL_EPS = 5
+TB_LOG_DIR = "experiments/tb_logs/"
 
 
-def make_env(scenario: str = "default"):
-    return make_vec_env(lambda: AirportEnv(scenario=scenario), n_envs=4)
+def checkpoint_path(name: str) -> str:
+    return os.path.join(CHECKPOINT_DIR, name)
 
 
-def make_gate_only_env(scenario: str = "default"):
-    return make_vec_env(lambda: GateOnlyWrapper(AirportEnv(scenario=scenario)), n_envs=4)
+def already_trained(name: str) -> bool:
+    p = checkpoint_path(name)
+    return os.path.exists(p) or os.path.exists(f"{p}.zip")
 
 
-def build_model(env):
-    ppo_kwargs = {k: v for k, v in BASE_CONFIG.items() if k != "total_timesteps"}
-    return PPO(
-        "MlpPolicy", env,
-        verbose=1,
-        tensorboard_log="./experiments/tb_logs/",
-        **ppo_kwargs,
-    )
+def train_model(name: str, cfg: dict) -> None:
+    scenario = cfg["scenario"]
+    config   = cfg["config"]
 
+    print(f"\n{'='*60}")
+    print(f"  {cfg['label']}")
+    print(f"  scenario={scenario}  timesteps={config['total_timesteps']:,}")
+    print(f"{'='*60}")
 
-def train(model, total_timesteps: int):
-    model.learn(total_timesteps=total_timesteps)
-    return model
+    env = make_vec_env(lambda: AirportEnv(scenario=scenario), n_envs=N_ENVS)
+    ppo_kwargs = {k: v for k, v in config.items() if k != "total_timesteps"}
+    model = PPO("MlpPolicy", env, verbose=1,
+                tensorboard_log=TB_LOG_DIR, **ppo_kwargs)
+    model.learn(total_timesteps=config["total_timesteps"])
 
-
-def evaluate(model, scenario: str = "default", n_episodes: int = 5,
-             gate_only: bool = False):
-    if gate_only:
-        env = GateOnlyWrapper(AirportEnv(scenario=scenario))
-    else:
-        env = AirportEnv(scenario=scenario)
-
+    # Quick eval
+    eval_env = AirportEnv(scenario=scenario)
     rewards = []
-    for ep in range(n_episodes):
-        obs, _ = env.reset()
+    for _ in range(N_EVAL_EPS):
+        obs, _ = eval_env.reset()
         done, total_r = False, 0.0
         while not done:
             action, _ = model.predict(obs, deterministic=True)
-            obs, r, term, trunc, _ = env.step(action)
+            obs, r, term, trunc, _ = eval_env.step(action)
             total_r += r
             done = term or trunc
         rewards.append(total_r)
-        print(f"  Episode {ep+1}: reward={total_r:.1f}")
+    eval_env.close()
+    print(f"  Quick eval ({N_EVAL_EPS} eps): mean reward = {sum(rewards)/N_EVAL_EPS:.1f}")
 
-    env.close()
-    print(f"  Mean reward: {sum(rewards)/n_episodes:.2f}")
-
-
-def save(model, path: str):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    model.save(path)
-    print(f"  Saved: {path}.zip")
+    os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+    model.save(checkpoint_path(name))
+    print(f"  Saved: {checkpoint_path(name)}.zip")
 
 
 if __name__ == "__main__":
-    os.makedirs("experiments", exist_ok=True)
-    ts = BASE_CONFIG["total_timesteps"]
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--retrain", action="store_true",
+                        help="Retrain all models even if checkpoints exist")
+    parser.add_argument("--only", nargs="+", metavar="MODEL",
+                        help="Train only these model names")
+    args = parser.parse_args()
 
-    # --- Model 1: full joint control on default (main model) ---
-    print("\n" + "="*55)
-    print("  Model 1: PPO full joint control — default scenario")
-    print("="*55)
-    env = make_env("default")
-    model = build_model(env)
-    model = train(model, ts)
-    evaluate(model, "default")
-    save(model, "experiments/ppo_airport")
+    to_train = args.only if args.only else list(MODELS.keys())
 
-    # --- Model 2: full joint control on heavy (generalization test) ---
-    print("\n" + "="*55)
-    print("  Model 2: PPO full joint control — heavy scenario")
-    print("="*55)
-    env = make_env("heavy")
-    model = build_model(env)
-    model = train(model, ts)
-    evaluate(model, "heavy")
-    save(model, "experiments/ppo_airport_heavy")
+    for name in to_train:
+        if name not in MODELS:
+            print(f"  [skip] unknown model '{name}'")
+            continue
+        if not args.retrain and already_trained(name):
+            print(f"  [skip] {name} — checkpoint exists (use --retrain to force)")
+            continue
+        train_model(name, MODELS[name])
 
-    # --- Model 3: gate-only on default (Experiment 3 ablation) ---
-    # Gate-only is a simpler task (agent only learns gate timing), so lower
-    # entropy is sufficient and converges more reliably.
-    print("\n" + "="*55)
-    print("  Model 3: PPO gate-only control — default scenario")
-    print("="*55)
-    env = make_gate_only_env("default")
-    gate_only_kwargs = {k: v for k, v in BASE_CONFIG.items() if k != "total_timesteps"}
-    gate_only_kwargs["ent_coef"] = 0.01
-    model = PPO("MlpPolicy", env, verbose=1,
-                tensorboard_log="./experiments/tb_logs/", **gate_only_kwargs)
-    model = train(model, ts)
-    evaluate(model, "default", gate_only=True)
-    save(model, "experiments/ppo_gate_only")
-
-    print("\n✓ All models trained. Run evaluation/evaluate.py next.")
-
-    # To view training curves:
-    #   source rl/bin/activate
-    #   tensorboard --logdir experiments/tb_logs/
-    #   open http://localhost:6006
+    print("\n  Training complete. Run evaluation/evaluate.py next.")

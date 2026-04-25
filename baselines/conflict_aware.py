@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from simulator import INTERSECTION
+from simulator import INTERSECTION_NODES
 
 
 def _legal_movers(state: dict) -> list[dict]:
@@ -9,14 +9,17 @@ def _legal_movers(state: dict) -> list[dict]:
         if not ac["active"] or ac["next_position"] is None:
             continue
 
-        next_position = ac["next_position"]
-        if next_position == INTERSECTION and state["intersection_occupied"]:
+        next_pos = ac["next_position"]
+
+        # Block moves into any currently-occupied intersection.
+        # Driven entirely by INTERSECTION_NODES — scales to any number of intersections.
+        if next_pos in INTERSECTION_NODES and next_pos in state["occupied_intersections"]:
             continue
 
         blocked = any(
             other["active"]
             and other["id"] != ac["id"]
-            and other["position"] == next_position
+            and other["position"] == next_pos
             for other in state["aircraft"]
         )
         if not blocked:
@@ -28,7 +31,7 @@ def _legal_movers(state: dict) -> list[dict]:
 def conflict_aware_policy(state: dict) -> int:
     candidates = _legal_movers(state)
     taxiing = [ac for ac in candidates if not ac["at_gate"]]
-    at_gate = [ac for ac in candidates if ac["at_gate"]]
+    at_gate  = [ac for ac in candidates if ac["at_gate"]]
 
     if taxiing:
         chosen = min(taxiing, key=lambda ac: (ac["hops_to_goal"], ac["id"]))
@@ -44,9 +47,9 @@ def conflict_aware_policy(state: dict) -> int:
 if __name__ == "__main__":
     from simulator import AirportSimulator
 
-    for scenario in ["dep_only", "default", "heavy"]:
+    for scenario in ["dep_only", "default", "heavy", "v2_det", "v2_stoch", "v2_heavy"]:
         sim = AirportSimulator(scenario=scenario)
-        state = sim.reset()
+        state = sim.reset(seed=0)
         done = False
         total_reward = 0.0
 

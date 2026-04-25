@@ -1,181 +1,167 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import csv
+from stable_baselines3 import PPO
+
 from simulator import AirportSimulator, MAX_STEPS
 from env.airport_env import AirportEnv
-from env.gate_only_wrapper import GateOnlyWrapper
 from baselines.fcfs import fcfs_policy
 from baselines.conflict_aware import conflict_aware_policy
 from evaluation.metrics import summary_table
-from stable_baselines3 import PPO
-import csv
+from experiments import (
+    EXPERIMENTS, CHECKPOINT_DIR,
+    POLICY_DISPLAY, SCENARIO_LABELS, N_EVAL_EPISODES,
+)
+
+BASELINE_POLICIES = {
+    "FCFS":          fcfs_policy,
+    "ConflictAware": conflict_aware_policy,
+}
+
+RESULTS_DIR = "experiments/results"
 
 
-def run_baseline_episodes(policy_fn, scenario: str, n_episodes: int = 200) -> list[dict]:
+# ---------------------------------------------------------------------------
+# Runners
+# ---------------------------------------------------------------------------
+def run_baseline(policy_fn, scenario: str, n: int = N_EVAL_EPISODES) -> list[dict]:
     results = []
-
-    for _ in range(n_episodes):
+    for _ in range(n):
         sim = AirportSimulator(scenario=scenario)
         state = sim.reset()
         done = False
-        total_reward = 0.0
-        conflicts = 0
-        illegal_moves = 0
-        completions = 0
+        total_reward = conflicts = illegal = completions = 0
 
         while not done:
             action = int(policy_fn(state))
             state, reward, done, info = sim.step(action)
             total_reward += reward
-            conflicts += info["conflicts"]
-            illegal_moves += info["illegal_moves"]
-            completions += info["completions"]
+            conflicts    += info["conflicts"]
+            illegal      += info["illegal_moves"]
+            completions  += info["completions"]
 
-        timed_out = sim.step_count >= MAX_STEPS and any(not ac.done for ac in sim.aircraft)
         results.append({
             "total_reward": total_reward,
-            "steps": sim.step_count,
-            "conflicts": conflicts,
-            "illegal_moves": illegal_moves,
-            "completions": completions,
-            "timed_out": timed_out,
+            "steps":        sim.step_count,
+            "conflicts":    conflicts,
+            "illegal_moves": illegal,
+            "completions":  completions,
+            "timed_out":    sim.step_count >= MAX_STEPS and any(not ac.done for ac in sim.aircraft),
         })
-
     return results
 
 
-def run_ppo_episodes(model, scenario: str, n_episodes: int = 200,
-                     gate_only: bool = False) -> list[dict]:
-    base = AirportEnv(scenario=scenario)
-    env  = GateOnlyWrapper(base) if gate_only else base
+def run_ppo(model, scenario: str, n: int = N_EVAL_EPISODES) -> list[dict]:
+    env = AirportEnv(scenario=scenario)
     results = []
 
-    for _ in range(n_episodes):
+    for _ in range(n):
         obs, _ = env.reset()
         done = False
-        total_reward = 0.0
-        conflicts = 0
-        illegal_moves = 0
-        completions = 0
+        total_reward = conflicts = illegal = completions = 0
 
         while not done:
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, term, trunc, info = env.step(int(action))
             total_reward += reward
-            conflicts += info["conflicts"]
-            illegal_moves += info["illegal_moves"]
-            completions += info["completions"]
+            conflicts    += info["conflicts"]
+            illegal      += info["illegal_moves"]
+            completions  += info["completions"]
             done = term or trunc
 
-        sim = env._sim if hasattr(env, "_sim") else env.env._sim
-        timed_out = sim.step_count >= MAX_STEPS and any(not ac.done for ac in sim.aircraft)
         results.append({
             "total_reward": total_reward,
-            "steps": sim.step_count,
-            "conflicts": conflicts,
-            "illegal_moves": illegal_moves,
-            "completions": completions,
-            "timed_out": timed_out,
+            "steps":        env._sim.step_count,
+            "conflicts":    conflicts,
+            "illegal_moves": illegal,
+            "completions":  completions,
+            "timed_out":    env._sim.step_count >= MAX_STEPS
+                            and any(not ac.done for ac in env._sim.aircraft),
         })
 
     env.close()
     return results
 
 
-def save_csv(all_results: dict[str, list[dict]], path: str) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    fieldnames = [
-        "policy",
-        "episode",
-        "total_reward",
-        "steps",
-        "conflicts",
-        "completions",
-        "timed_out",
-    ]
+# ---------------------------------------------------------------------------
+# CSV helpers
+# ---------------------------------------------------------------------------
+FIELDNAMES = ["experiment", "scenario", "policy", "episode",
+              "total_reward", "steps", "conflicts", "completions", "timed_out"]
 
-    with open(path, "w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+
+def save_experiment_csv(exp_id: str, data: dict) -> str:
+    """data: {scenario: {policy: [episode_dicts]}}"""
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    path = os.path.join(RESULTS_DIR, f"{exp_id}.csv")
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writeheader()
-        for policy, results in all_results.items():
-            for episode, result in enumerate(results, start=1):
-                writer.writerow({
-                    "policy": policy,
-                    "episode": episode,
-                    "total_reward": result["total_reward"],
-                    "steps": result["steps"],
-                    "conflicts": result["conflicts"],
-                    "completions": result["completions"],
-                    "timed_out": result["timed_out"],
-                })
+        for scenario, policies in data.items():
+            for policy, episodes in policies.items():
+                for ep_idx, ep in enumerate(episodes, 1):
+                    writer.writerow({
+                        "experiment":   exp_id,
+                        "scenario":     scenario,
+                        "policy":       policy,
+                        "episode":      ep_idx,
+                        "total_reward": ep["total_reward"],
+                        "steps":        ep["steps"],
+                        "conflicts":    ep["conflicts"],
+                        "completions":  ep["completions"],
+                        "timed_out":    ep["timed_out"],
+                    })
+    return path
 
 
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 def main():
-    model_path = "experiments/ppo_airport"
-    if not (os.path.exists(model_path) or os.path.exists(f"{model_path}.zip")):
-        raise FileNotFoundError(
-            "Trained PPO model not found at experiments/ppo_airport(.zip). "
-            "Run python training/train.py first."
-        )
+    os.makedirs(RESULTS_DIR, exist_ok=True)
 
-    model = PPO.load(model_path)
-    os.makedirs("experiments", exist_ok=True)
+    # Load all PPO models referenced across all experiments (deduplicated)
+    needed = {m for exp in EXPERIMENTS for m in exp["ppo_models"]}
+    loaded = {}
+    for name in needed:
+        path = os.path.join(CHECKPOINT_DIR, name)
+        if os.path.exists(path) or os.path.exists(f"{path}.zip"):
+            loaded[name] = PPO.load(path)
+            print(f"  loaded: {POLICY_DISPLAY.get(name, name)}")
+        else:
+            print(f"  [missing] {name} — run training/train.py first")
 
-    # Experiment 1 & 2: all policies across all traffic levels
-    scenarios = {
-        "dep_only": "Experiment 2a — Low Traffic (2 aircraft)",
-        "default":  "Experiment 1  — Medium Traffic / Main Result (3 aircraft)",
-        "heavy":    "Experiment 2b — High Traffic (4 aircraft)",
-    }
+    print()
 
-    all_scenario_results = {}
-    for scenario, label in scenarios.items():
+    # Run each experiment
+    for exp in EXPERIMENTS:
         print(f"\n{'='*60}")
-        print(f"  {label}")
+        print(f"  {exp['name']}")
         print(f"{'='*60}")
-        results = {
-            "FCFS":         run_baseline_episodes(fcfs_policy, scenario),
-            "ConflictAware": run_baseline_episodes(conflict_aware_policy, scenario),
-            "PPO":          run_ppo_episodes(model, scenario),
-        }
-        print(summary_table(results))
-        save_csv(results, f"experiments/results_{scenario}.csv")
-        print(f"  Saved: experiments/results_{scenario}.csv")
-        all_scenario_results[scenario] = results
 
-    # Combined CSV with scenario column
-    combined_path = "experiments/results_all.csv"
-    fieldnames = ["scenario", "policy", "episode", "total_reward",
-                  "steps", "conflicts", "completions", "timed_out"]
-    with open(combined_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for scenario, results in all_scenario_results.items():
-            for policy, episodes in results.items():
-                for ep_idx, ep in enumerate(episodes, start=1):
-                    writer.writerow({"scenario": scenario, "policy": policy,
-                                     "episode": ep_idx, **{k: ep[k] for k in
-                                     ["total_reward", "steps", "conflicts",
-                                      "completions", "timed_out"]}})
-    print(f"\nCombined CSV saved: {combined_path}")
+        exp_data = {}   # scenario → {policy_display → [episode dicts]}
 
-    # Experiment 3: ablation — joint control vs gate-only vs ConflictAware (default scenario)
-    gate_only_path = "experiments/ppo_gate_only"
-    if os.path.exists(gate_only_path) or os.path.exists(f"{gate_only_path}.zip"):
-        print(f"\n{'='*60}")
-        print(f"  Experiment 3 — Ablation: Joint vs Gate-Only Control")
-        print(f"{'='*60}")
-        model_gate_only = PPO.load(gate_only_path)
-        exp3_results = {
-            "PPO (joint)":     run_ppo_episodes(model, "default"),
-            "PPO (gate-only)": run_ppo_episodes(model_gate_only, "default", gate_only=True),
-            "ConflictAware":   run_baseline_episodes(conflict_aware_policy, "default"),
-        }
-        print(summary_table(exp3_results))
-        save_csv(exp3_results, "experiments/results_exp3_ablation.csv")
-        print("  Saved: experiments/results_exp3_ablation.csv")
-    else:
-        print("\n[Experiment 3 skipped — ppo_gate_only.zip not found, run training/train.py first]")
+        for scenario in exp["eval_scenarios"]:
+            label = SCENARIO_LABELS.get(scenario, scenario)
+            print(f"\n  Scenario: {label.replace(chr(10), ' ')}")
+            policy_results = {}
+
+            for bl_name, bl_fn in BASELINE_POLICIES.items():
+                policy_results[bl_name] = run_baseline(bl_fn, scenario)
+
+            for model_key in exp["ppo_models"]:
+                if model_key in loaded:
+                    display = POLICY_DISPLAY.get(model_key, model_key)
+                    policy_results[display] = run_ppo(loaded[model_key], scenario)
+                else:
+                    print(f"    [skip] {model_key} not loaded")
+
+            print(summary_table(policy_results))
+            exp_data[scenario] = policy_results
+
+        path = save_experiment_csv(exp["id"], exp_data)
+        print(f"\n  Saved: {path}")
 
 
 if __name__ == "__main__":
