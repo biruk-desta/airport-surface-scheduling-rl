@@ -14,6 +14,31 @@ Poisson demand.
 The animation compares RunwayAware and PPO with demand-aware features plus
 strategic hold under the same Poisson burst seed.
 
+## Project Explainer Video
+
+For a short visual explanation of the project arc, watch the explainer video:
+
+<video
+  src="media/videos/project_explainer/1080p60/airport_surface_explainer.mp4"
+  controls
+  width="100%">
+</video>
+
+[Open the explainer video directly](media/videos/project_explainer/1080p60/airport_surface_explainer.mp4)
+
+The explainer walks through the main story:
+
+1. The original fixed-route MDP was too easy because ConflictAware matched exact
+   planning.
+2. Route choice introduced a real short-route-vs-bypass tradeoff.
+3. Bursty Poisson demand shifted the problem toward backlog/runway metering.
+4. MaskablePPO became operationally competitive only after demand-aware
+   observations, valid-action masks, strategic hold/no-op, and longer training.
+
+The sound effects are synchronized with the video: text reveals, aircraft
+movement, central-conflict warnings, invalid-action masks, hold decisions, and
+final result highlights each get their own cue.
+
 ## What This Implements
 
 - Fixed-route, route-choice, and Poisson traffic scenarios.
@@ -62,6 +87,8 @@ experiments/figures/final_results_overview_flat.png
 experiments/figures/poisson_burst_report_rollout_flat.png
 experiments/figures/poisson_burst_runwayaware_vs_ppo_hold.gif
 ```
+
+The rendered project explainer video is under `media/videos/project_explainer/`.
 
 ## Setup
 
@@ -139,6 +166,7 @@ training/                 PPO/MaskablePPO training entry point and configs
 evaluation/               Evaluation runner and metric aggregation
 visualization/            Plot and rollout-animation scripts
 experiments/figures/      Selected final visual assets
+media/videos/             Optional rendered explainer videos
 ```
 
 ## Code Attribution
