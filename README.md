@@ -9,11 +9,6 @@ The project compares MaskablePPO with handcrafted scheduling heuristics and
 planning baselines under deterministic route-choice scenarios and stochastic
 Poisson demand.
 
-![Same-seed Poisson burst rollout](experiments/figures/poisson_burst_runwayaware_vs_ppo_hold.gif)
-
-The animation compares RunwayAware and PPO with demand-aware features plus
-strategic hold under the same Poisson burst seed.
-
 ## Project Explainer Video
 
 For a short visual explanation of the project arc, watch the explainer video:
@@ -28,6 +23,13 @@ The explainer walks through the main story:
 3. Bursty Poisson demand shifted the problem toward backlog/runway metering.
 4. MaskablePPO became operationally competitive only after demand-aware
    observations, valid-action masks, strategic hold/no-op, and longer training.
+
+## Same-Seed Rollout
+
+![Same-seed Poisson burst rollout](experiments/figures/poisson_burst_runwayaware_vs_ppo_hold.gif)
+
+The animation compares RunwayAware and PPO with demand-aware features plus
+strategic hold under the same Poisson burst seed.
 
 ## What This Implements
 
