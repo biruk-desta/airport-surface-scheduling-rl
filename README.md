@@ -29,10 +29,6 @@ The explainer walks through the main story:
 4. MaskablePPO became operationally competitive only after demand-aware
    observations, valid-action masks, strategic hold/no-op, and longer training.
 
-The sound effects are synchronized with the video: text reveals, aircraft
-movement, central-conflict warnings, invalid-action masks, hold decisions, and
-final result highlights each get their own cue.
-
 ## What This Implements
 
 - Fixed-route, route-choice, and Poisson traffic scenarios.
