@@ -9,6 +9,11 @@ The project compares MaskablePPO with handcrafted scheduling heuristics and
 planning baselines under deterministic route-choice scenarios and stochastic
 Poisson demand.
 
+![Same-seed Poisson burst rollout](experiments/figures/poisson_burst_runwayaware_vs_ppo_hold.gif)
+
+The animation compares RunwayAware and PPO with demand-aware features plus
+strategic hold under the same Poisson burst seed.
+
 ## What This Implements
 
 - Fixed-route, route-choice, and Poisson traffic scenarios.
@@ -22,7 +27,7 @@ Poisson demand.
 - Baselines: FCFS, ConflictAware, RunwayAware, route-choice heuristics, MPC-H4/H6,
   and a legacy exact planner for small fixed-route diagnosis.
 
-## Main Takeaway
+## Main Result
 
 The original fixed-route MDP is too easy: a conflict-aware greedy policy matches
 the exact planner. Route choice creates the first useful learned-control setting,
@@ -31,7 +36,24 @@ features plus strategic hold/no-op let MaskablePPO reach near-parity with the
 strongest handcrafted heuristics on operational metrics, while still slightly
 trailing on shaped reward.
 
-## Demo Assets
+Final bursty Poisson evaluation:
+
+| Policy | Censored demand delay | Done/generated | Unserved | Timeout | Surface delay | Reward |
+|---|---:|---:|---:|---:|---:|---:|
+| ConflictAware | 43.2 | 52.0/53.4 | 1.3 | 32.0% | 8.8 | 175.7 |
+| RunwayAware | 43.2 | 52.0/53.4 | 1.3 | 32.0% | 8.8 | 175.4 |
+| PPO features + hold | 43.3 | 52.0/53.4 | 1.3 | 32.0% | 8.8 | 168.3 |
+| PPO features, no hold | 45.9 | 51.7/53.4 | 1.7 | 35.3% | 11.3 | -65.6 |
+| FCFS | 54.5 | 51.7/53.4 | 1.6 | 30.0% | 15.4 | -1134.8 |
+
+The final learned policy reaches near-parity with the strongest heuristics on
+the operational metrics, but it does not dominate them on shaped reward.
+
+## Visual Summary
+
+![Final results overview](experiments/figures/final_results_overview_flat.png)
+
+![Poisson burst rollout summary](experiments/figures/poisson_burst_report_rollout_flat.png)
 
 Final visual assets are tracked under `experiments/figures/`:
 
@@ -40,9 +62,6 @@ experiments/figures/final_results_overview_flat.png
 experiments/figures/poisson_burst_report_rollout_flat.png
 experiments/figures/poisson_burst_runwayaware_vs_ppo_hold.gif
 ```
-
-The GIF compares RunwayAware and PPO with demand-aware features plus strategic
-hold under the same Poisson burst seed.
 
 ## Setup
 
