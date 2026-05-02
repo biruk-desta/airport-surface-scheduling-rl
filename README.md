@@ -18,13 +18,9 @@ strategic hold under the same Poisson burst seed.
 
 For a short visual explanation of the project arc, watch the explainer video:
 
-<video
-  src="media/videos/project_explainer/1080p60/airport_surface_explainer.mp4"
-  controls
-  width="100%">
-</video>
+![Project explainer preview](media/videos/project_explainer/airport_surface_explainer_preview.gif)
 
-[Open the explainer video directly](media/videos/project_explainer/1080p60/airport_surface_explainer.mp4)
+[Open the explainer video with sound](media/videos/project_explainer/1080p60/airport_surface_explainer.mp4)
 
 The explainer walks through the main story:
 
