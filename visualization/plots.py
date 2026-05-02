@@ -45,6 +45,23 @@ def load_experiment(exp_id: str) -> dict:
                 "steps":        np.array([float(e["steps"])        for e in episodes]),
                 "completions":  np.array([float(e["completions"])  for e in episodes]),
                 "conflicts":    np.array([float(e["conflicts"])    for e in episodes]),
+                "illegal_moves": np.array([float(e.get("illegal_moves", 0)) for e in episodes]),
+                "mean_delay":   np.array([float(e.get("mean_delay", 0)) for e in episodes]),
+                "completed_mean_demand_delay": np.array([
+                    float(e.get("completed_mean_demand_delay", e.get("mean_delay", 0)))
+                    for e in episodes
+                ]),
+                "mean_demand_delay_including_unserved": np.array([
+                    float(e.get("mean_demand_delay_including_unserved", e.get("mean_delay", 0)))
+                    for e in episodes
+                ]),
+                "unserved_total": np.array([float(e.get("unserved_total", 0)) for e in episodes]),
+                "runway_utilization": np.array([float(e.get("runway_utilization", 0)) for e in episodes]),
+                "peak_backlog": np.array([
+                    float(e.get("max_departure_backlog", 0)) +
+                    float(e.get("max_arrival_backlog", 0))
+                    for e in episodes
+                ]),
                 "timed_out":    np.array([e["timed_out"] == "True" for e in episodes]),
             }
     return data
@@ -74,6 +91,17 @@ def _style_ax(ax):
     ax.set_axisbelow(True)
 
 
+def _set_axis_margin(ax, values: list[float], errors: list[float]) -> None:
+    if not values:
+        return
+    tops = [v + e for v, e in zip(values, errors)]
+    bottoms = [v - e for v, e in zip(values, errors)]
+    ymax = max(tops + [0])
+    ymin = min(bottoms + [0])
+    span = max(ymax - ymin, 1.0)
+    ax.set_ylim(ymin - 0.08 * span, ymax + 0.16 * span)
+
+
 # ---------------------------------------------------------------------------
 # Per-experiment figure: 3-panel (reward, completions, steps)
 # ---------------------------------------------------------------------------
@@ -93,24 +121,36 @@ def plot_experiment(exp: dict, data: dict):
             if p not in all_policies:
                 all_policies.append(p)
 
-    metrics = [
-        ("total_reward", "Mean Episode Reward"),
-        ("completions",  "Aircraft Completed / Episode"),
-        ("steps",        "Steps per Episode"),
-    ]
+    if exp["id"] == "exp5":
+        metrics = [
+            ("total_reward", "Mean Episode Reward"),
+            ("mean_demand_delay_including_unserved", "Demand Delay Incl. Unserved"),
+            ("peak_backlog", "Peak Backlog"),
+        ]
+    else:
+        metrics = [
+            ("total_reward", "Mean Episode Reward"),
+            ("completions",  "Aircraft Completed / Episode"),
+            ("steps",        "Steps per Episode"),
+        ]
 
-    fig, axes = plt.subplots(1, 3, figsize=(13, 5))
+    n      = len(all_policies)
+    figure_width = max(15.5, 9.5 + 0.42 * n * len(scenarios))
+    figure_height = 6.2 if n <= 5 else 7.2
+    fig, axes = plt.subplots(1, 3, figsize=(figure_width, figure_height))
     fig.patch.set_facecolor("white")
-    fig.suptitle(exp["name"], fontsize=13, fontweight="bold", y=1.01)
+    fig.suptitle(exp["name"], fontsize=14, fontweight="bold", y=0.98)
 
     x      = np.arange(len(scenarios))
-    n      = len(all_policies)
-    width  = 0.75 / n
+    width  = min(0.24, 0.78 / max(n, 1))
     offset = np.linspace(-(n - 1) / 2, (n - 1) / 2, n) * width
     x_labels = [SCENARIO_LABELS.get(s, s) for s in scenarios]
+    label_steps = n <= 4 and len(scenarios) <= 4
 
     for ax, (metric, ylabel) in zip(axes, metrics):
         _style_ax(ax)
+        metric_means = []
+        metric_stds = []
 
         for i, policy in enumerate(all_policies):
             means, stds = [], []
@@ -118,20 +158,23 @@ def plot_experiment(exp: dict, data: dict):
                 arr = data[sc].get(policy, {}).get(metric, np.array([0]))
                 means.append(arr.mean())
                 stds.append(arr.std())
+            metric_means.extend(means)
+            metric_stds.extend(stds)
 
             bars = ax.bar(x + offset[i], means, width,
                           yerr=stds if max(stds) > 0 else None,
                           color=_color(policy), label=policy,
                           zorder=3, edgecolor="white", linewidth=0.5,
-                          capsize=3, error_kw={"elinewidth": 1})
+                          capsize=2 if n > 5 else 3,
+                          error_kw={"elinewidth": 0.9})
 
-            # Value labels on steps panel
-            if metric == "steps":
-                for bar, v in zip(bars, means):
+            if metric == "steps" and label_steps:
+                for bar, v, err in zip(bars, means, stds):
+                    pad = max((max(means) - min(means)) * 0.03, 0.35)
                     ax.text(bar.get_x() + bar.get_width() / 2,
-                            bar.get_height() + 1,
+                            v + err + pad,
                             f"{int(v)}", ha="center", va="bottom",
-                            fontsize=7, color="#333")
+                            fontsize=8, color="#333", clip_on=False)
 
         if metric == "total_reward":
             ax.axhline(0, color="#333", linewidth=0.8, linestyle="--", alpha=0.4)
@@ -141,10 +184,22 @@ def plot_experiment(exp: dict, data: dict):
         ax.set_ylabel(ylabel, fontsize=10)
         ax.set_xlabel("Scenario", fontsize=10)
         ax.tick_params(labelsize=9)
+        _set_axis_margin(ax, metric_means, metric_stds)
 
-    axes[0].legend(fontsize=9, framealpha=0.9, edgecolor="#ccc", loc="best")
+    handles, labels = axes[0].get_legend_handles_labels()
+    legend_cols = min(4, max(1, n))
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 0.01),
+        ncol=legend_cols,
+        fontsize=9,
+        framealpha=0.95,
+        edgecolor="#ccc",
+    )
 
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0.12 if n <= 5 else 0.18, 1, 0.94])
     _save(fig, f"{exp['id']}_results.png")
 
 

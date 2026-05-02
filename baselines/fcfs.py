@@ -24,6 +24,7 @@ def _can_move(ac: dict, state: dict) -> bool:
 
 
 def fcfs_policy(state: dict) -> int:
+    legal_actions = set(state.get("legal_actions", []))
     candidates = [
         ac for ac in state["aircraft"]
         if ac["active"] and not ac["done"]
@@ -31,7 +32,10 @@ def fcfs_policy(state: dict) -> int:
     candidates.sort(key=lambda ac: (-ac["steps_waiting"], ac["id"]))
 
     for ac in candidates:
-        if _can_move(ac, state):
+        for action in (ac.get("short_action"), ac.get("advance_action"), ac["id"] + 1):
+            if action in legal_actions:
+                return action
+        if not legal_actions and _can_move(ac, state):
             return ac["id"] + 1
 
     return 0

@@ -1,10 +1,48 @@
-# Learning Conflict-Aware Control Policies for Airport Surface Operations
+# Airport Surface Scheduling with Masked PPO
 
-COS435 — Hassan Khan, Keith Torpey, Biruk Desta
+COS435 / ECE433 final project by Biruk Desta, Hassan Khan, and Keith Torpey.
 
-A reinforcement learning agent for airport surface control. A centralized PPO agent jointly decides gate releases and intersection movement in a small synthetic taxiway network, learning to coordinate aircraft while minimizing delays and avoiding conflicts.
+This repository contains a stylized airport-surface scheduling benchmark. A
+centralized dispatcher issues aircraft clearances through gates, taxiway spots,
+intersections, route choices, a runway threshold queue, and timed runway service.
+The project compares MaskablePPO with handcrafted scheduling heuristics and
+planning baselines under deterministic route-choice scenarios and stochastic
+Poisson demand.
 
----
+## What This Implements
+
+- Fixed-route, route-choice, and Poisson traffic scenarios.
+- Short-vs-bypass departure routing.
+- Arrival/departure conflicts at a shared central bottleneck.
+- Runway threshold queue and timed runway service.
+- Active-slot recycling for generated Poisson demand.
+- Timestamped backlog requests and horizon-censored demand-delay metrics.
+- Legal-action masks for MaskablePPO.
+- Strategic no-op/hold actions for metering under bursty demand.
+- Baselines: FCFS, ConflictAware, RunwayAware, route-choice heuristics, MPC-H4/H6,
+  and a legacy exact planner for small fixed-route diagnosis.
+
+## Main Takeaway
+
+The original fixed-route MDP is too easy: a conflict-aware greedy policy matches
+the exact planner. Route choice creates the first useful learned-control setting,
+where MaskablePPO learns mixed routing. In bursty Poisson demand, demand-aware
+features plus strategic hold/no-op let MaskablePPO reach near-parity with the
+strongest handcrafted heuristics on operational metrics, while still slightly
+trailing on shaped reward.
+
+## Demo Assets
+
+Final visual assets are tracked under `experiments/figures/`:
+
+```text
+experiments/figures/final_results_overview_flat.png
+experiments/figures/poisson_burst_report_rollout_flat.png
+experiments/figures/poisson_burst_runwayaware_vs_ppo_hold.gif
+```
+
+The GIF compares RunwayAware and PPO with demand-aware features plus strategic
+hold under the same Poisson burst seed.
 
 ## Setup
 
@@ -16,44 +54,77 @@ source rl/bin/activate
 pip install -r requirements.txt
 ```
 
----
+## Quick Checks
 
-## Run Order
+Verify the simulator:
 
-**1. Verify the simulator works**
 ```bash
 python simulator.py
 ```
 
-**2. Verify the Gym environment**
+Verify the Gymnasium environment:
+
 ```bash
 python -c "from env.airport_env import AirportEnv; from stable_baselines3.common.env_checker import check_env; check_env(AirportEnv()); print('env OK')"
 ```
 
-**3. Train PPO**
+## Training
+
+Train a MaskablePPO model:
+
 ```bash
-python training/train.py
+python training/train.py --only ppo_route_choice_mix --maskable --seed 0
 ```
 
-**4. Run evaluation**
+Train the final Poisson model:
+
+```bash
+python training/train.py --only ppo_poisson_mix_features_hold_long --maskable --seed 0
+python training/train.py --only ppo_poisson_mix_features_hold_long --maskable --seed 1
+python training/train.py --only ppo_poisson_mix_features_hold_long --maskable --seed 2
+```
+
+Checkpoints are written to `experiments/models/`.
+
+## Evaluation and Plots
+
+Run all configured evaluations:
+
 ```bash
 python evaluation/evaluate.py
 ```
 
-**5. Generate plots**
+Generate summary plots:
+
 ```bash
 python visualization/plots.py
 ```
 
----
+Generate the same-seed rollout animation:
 
-## File Structure
+```bash
+python visualization/rollout_animation.py
+```
 
+Generated CSVs, model checkpoints, TensorBoard logs, and intermediate plots are
+not tracked by default.
+
+## Repository Structure
+
+```text
+simulator.py              Core simulator and scenario logic
+experiments.py            Experiment/model/scenario registry
+baselines/                Heuristic, MPC, and exact-planner baselines
+env/                      Gymnasium wrapper and action masks
+training/                 PPO/MaskablePPO training entry point and configs
+evaluation/               Evaluation runner and metric aggregation
+visualization/            Plot and rollout-animation scripts
+experiments/figures/      Selected final visual assets
 ```
-simulator.py          # core MDP logic (no Gym dependency)
-env/airport_env.py    # Gymnasium wrapper
-baselines/            # FCFS and conflict-aware heuristic policies
-training/             # PPO training + hyperparameter configs
-evaluation/           # metrics and evaluation runner
-experiments/          # saved models, TensorBoard logs, results
-```
+
+## Code Attribution
+
+RL training uses off-the-shelf PPO from Stable-Baselines3 and MaskablePPO from
+SB3-Contrib. The simulator, Gymnasium wrapper, legal-action masks, route-choice
+and Poisson scenarios, handcrafted baselines, metrics, plots, and evaluation
+scripts are project-specific implementations for this class project.

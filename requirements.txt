@@ -1,5 +1,6 @@
 gymnasium==1.2.3
 stable-baselines3==2.8.0
+sb3-contrib==2.8.0
 numpy==2.4.4
 networkx==3.6.1
 matplotlib==3.10.8

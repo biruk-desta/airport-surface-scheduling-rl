@@ -14,6 +14,20 @@ FAST_CONFIG = {
     "total_timesteps": 50_000,  # for quick testing and debugging
 }
 
+POISSON_CONFIG = {
+    **BASE_CONFIG,
+    "ent_coef": 0.02,
+    "total_timesteps": 100_000,
+}
+
+POISSON_LONG_CONFIG = {
+    **BASE_CONFIG,
+    "n_steps": 1024,
+    "batch_size": 128,
+    "ent_coef": 0.005,
+    "total_timesteps": 300_000,
+}
+
 LONG_CONFIG = {
     **BASE_CONFIG,
     "total_timesteps": 1_000_000,  # for final training runs before evaluation

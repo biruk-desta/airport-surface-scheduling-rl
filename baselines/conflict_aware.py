@@ -4,9 +4,16 @@ from simulator import INTERSECTION_NODES
 
 
 def _legal_movers(state: dict) -> list[dict]:
+    legal_actions = set(state.get("legal_actions", []))
     movers = []
     for ac in state["aircraft"]:
         if not ac["active"] or ac["next_position"] is None:
+            if legal_actions and ac.get("short_action") in legal_actions:
+                movers.append(ac)
+            continue
+        if legal_actions:
+            if ac.get("advance_action") in legal_actions or ac.get("short_action") in legal_actions:
+                movers.append(ac)
             continue
 
         next_pos = ac["next_position"]
@@ -29,17 +36,26 @@ def _legal_movers(state: dict) -> list[dict]:
 
 
 def conflict_aware_policy(state: dict) -> int:
+    legal = set(state.get("legal_actions", []))
     candidates = _legal_movers(state)
     taxiing = [ac for ac in candidates if not ac["at_gate"]]
     at_gate  = [ac for ac in candidates if ac["at_gate"]]
 
     if taxiing:
         chosen = min(taxiing, key=lambda ac: (ac["hops_to_goal"], ac["id"]))
-        return chosen["id"] + 1
+        if chosen.get("advance_action") in legal:
+            return chosen["advance_action"]
+        if chosen.get("short_action") in legal:
+            return chosen["short_action"]
+        return 0
 
     if at_gate:
         chosen = min(at_gate, key=lambda ac: (ac["hops_to_goal"], ac["id"]))
-        return chosen["id"] + 1
+        if chosen.get("short_action") in legal:
+            return chosen["short_action"]
+        if chosen.get("advance_action") in legal:
+            return chosen["advance_action"]
+        return 0
 
     return 0
 
