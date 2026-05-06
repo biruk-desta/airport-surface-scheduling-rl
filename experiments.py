@@ -11,9 +11,8 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from training.config import (
     BASE_CONFIG,
-    FAST_CONFIG,
     LONG_CONFIG,
-    POISSON_CONFIG,
+    HIGH_ENT_CONFIG,
     POISSON_LONG_CONFIG,
 )
 
@@ -30,44 +29,52 @@ MODELS = {
     },
     "ppo_v2_stoch": {
         "scenario": "v2_stoch",
-        "config":   LONG_CONFIG,
+        "config":   HIGH_ENT_CONFIG,
+        "maskable": True,
         "label":    "PPO trained on v2_stoch (4 ac, stochastic)",
     },
     "ppo_v2_variable": {
         "scenario": "v2_variable",
-        "config":   LONG_CONFIG,
+        "config":   HIGH_ENT_CONFIG,
+        "maskable": True,
         "label":    "PPO trained on v2_variable (3–5 ac, stochastic)",
     },
     "ppo_route_choice_trap": {
         "scenario": "route_choice_trap",
-        "config":   FAST_CONFIG,
+        "config":   LONG_CONFIG,
+        "maskable": True,
         "label":    "PPO trained on route_choice_trap (short vs bypass)",
     },
     "ppo_route_choice_mix": {
         "scenario": "route_choice_mix",
-        "config":   FAST_CONFIG,
+        "config":   LONG_CONFIG,
+        "maskable": True,
         "label":    "PPO trained on randomized route choice",
     },
     "ppo_poisson_burst": {
         "scenario": "poisson_burst",
-        "config":   POISSON_CONFIG,
+        "config":   POISSON_LONG_CONFIG,
+        "maskable": True,
         "label":    "PPO trained on bursty Poisson demand",
     },
     "ppo_poisson_train_mix_obs": {
         "scenario": "poisson_train_mix",
-        "config":   POISSON_CONFIG,
+        "config":   POISSON_LONG_CONFIG,
+        "maskable": True,
         "label":    "PPO trained on mixed Poisson demand with backlog features",
         "enhanced_obs": True,
     },
     "ppo_poisson_mix_features": {
         "scenario": "poisson_train_mix",
-        "config":   POISSON_CONFIG,
+        "config":   POISSON_LONG_CONFIG,
+        "maskable": True,
         "label":    "PPO trained on mixed Poisson demand with demand-aware features",
         "obs_mode": "poisson_features",
     },
     "ppo_poisson_mix_features_hold_long": {
         "scenario": "poisson_train_mix",
         "config":   POISSON_LONG_CONFIG,
+        "maskable": True,
         "label":    "PPO trained on mixed Poisson demand with demand-aware features and strategic no-op",
         "obs_mode": "poisson_features",
         "strategic_noop": True,

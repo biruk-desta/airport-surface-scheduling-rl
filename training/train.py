@@ -113,10 +113,12 @@ if __name__ == "__main__":
         if name not in MODELS:
             print(f"  [skip] unknown model '{name}'")
             continue
-        save_name = f"{name}_maskable_seed{args.seed}" if args.maskable else f"{name}_seed{args.seed}"
+        # cfg-level maskable default; CLI --maskable overrides to force it on
+        use_maskable = MODELS[name].get("maskable", False) or args.maskable
+        save_name = f"{name}_maskable_seed{args.seed}" if use_maskable else f"{name}_seed{args.seed}"
         if not args.retrain and already_trained(save_name):
             print(f"  [skip] {save_name} — checkpoint exists (use --retrain to force)")
             continue
-        train_model(name, MODELS[name], seed=args.seed, maskable=args.maskable)
+        train_model(name, MODELS[name], seed=args.seed, maskable=use_maskable)
 
     print("\n  Training complete. Run evaluation/evaluate.py next.")

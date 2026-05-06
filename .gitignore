@@ -1,14 +1,11 @@
 docs/
-
-# virtual environments
 rl/
 .venv/
-
-# Python cache
 __pycache__/
 **/__pycache__/
 *.pyc
 *.pyo
-
-# macOS
 .DS_Store
+experiments/tb_logs
+experiments/results
+experiments/models

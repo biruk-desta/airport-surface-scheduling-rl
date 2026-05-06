@@ -49,13 +49,11 @@ _EXACT_CACHE: dict[tuple[str, tuple[int, ...]], list[dict]] = {}
 
 def seeds_for_scenario(scenario: str) -> list[int]:
     """Use fewer seeds for deterministic stress tests with expensive planners."""
-    if scenario == "route_choice_mix":
-        return EVAL_SEEDS[:5]
+    if scenario in {"route_choice_det", "route_choice_trap"}:
+        return [0]   # fully deterministic — one seed is sufficient
     if scenario.startswith("poisson"):
         return EVAL_SEEDS[:50]
-    if scenario.startswith("route_choice"):
-        return [0]
-    return EVAL_SEEDS
+    return EVAL_SEEDS  # 200 for everything else
 
 
 def episode_metrics(sim: AirportSimulator) -> dict:

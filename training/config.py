@@ -32,3 +32,8 @@ LONG_CONFIG = {
     **BASE_CONFIG,
     "total_timesteps": 1_000_000,  # for final training runs before evaluation
 }
+
+HIGH_ENT_CONFIG = {
+    **LONG_CONFIG,
+    "ent_coef": 0.15,  # higher entropy prevents noop collapse in stochastic envs
+}
