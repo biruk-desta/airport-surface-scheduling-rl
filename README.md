@@ -1,4 +1,6 @@
-# Airport Surface Scheduling with Masked PPO
+# When Does RL Help in Airport Surface Scheduling?
+
+**A Masked PPO study with route choice and bursty demand**
 
 COS435 / ECE433 final project by Biruk Desta, Hassan Khan, and Keith Torpey.
 
@@ -52,6 +54,11 @@ where MaskablePPO learns mixed routing. In bursty Poisson demand, demand-aware
 features plus strategic hold/no-op let MaskablePPO reach near-parity with the
 strongest handcrafted heuristics on operational metrics, while still slightly
 trailing on shaped reward.
+
+The latest training registry uses longer masked PPO configurations for
+route-choice and stochastic fixed-demand runs, and the final Poisson policy uses
+the long 300k-step Poisson configuration with demand-aware observations and
+strategic no-op enabled.
 
 Final bursty Poisson evaluation:
 
@@ -111,15 +118,15 @@ python -c "from env.airport_env import AirportEnv; from stable_baselines3.common
 Train a MaskablePPO model:
 
 ```bash
-python training/train.py --only ppo_route_choice_mix --maskable --seed 0
+python training/train.py --only ppo_route_choice_mix --seed 0
 ```
 
 Train the final Poisson model:
 
 ```bash
-python training/train.py --only ppo_poisson_mix_features_hold_long --maskable --seed 0
-python training/train.py --only ppo_poisson_mix_features_hold_long --maskable --seed 1
-python training/train.py --only ppo_poisson_mix_features_hold_long --maskable --seed 2
+python training/train.py --only ppo_poisson_mix_features_hold_long --seed 0
+python training/train.py --only ppo_poisson_mix_features_hold_long --seed 1
+python training/train.py --only ppo_poisson_mix_features_hold_long --seed 2
 ```
 
 Checkpoints are written to `experiments/models/`.
