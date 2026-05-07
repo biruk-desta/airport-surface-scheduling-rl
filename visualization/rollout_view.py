@@ -141,88 +141,61 @@ def _shade_burst_phases(ax) -> None:
 def plot_traces(traces: list[Trace]) -> str:
     os.makedirs(OUT_DIR, exist_ok=True)
     colors = {
-        "ConflictAware": "#27ae60",
-        "RunwayAware": "#16a085",
-        "PPO features seed0": "#641e16",
-        "PPO features seed1": "#d35400",
-        "PPO features+hold seed1": "#154360",
+        "ConflictAware":   "#27ae60",
+        "RunwayAware":     "#16a085",
+        "PPO features":    "#d35400",
+        "PPO features+hold": "#154360",
     }
 
-    fig, all_axes = plt.subplots(
-        5,
-        1,
-        figsize=(12.5, 12.4),
-        sharex=False,
-        gridspec_kw={"height_ratios": [0.72, 1, 1, 1, 1]},
-    )
-    summary_ax = all_axes[0]
-    axes = all_axes[1:]
+    # 2×2 grid matching the flat layout
+    fig, axes = plt.subplots(2, 2, figsize=(13, 7), sharex=False)
     fig.patch.set_facecolor("white")
-    fig.suptitle(
-        f"Same-Seed Rollout: {SCENARIO} seed={SEED}",
-        fontsize=15,
-        fontweight="bold",
-        y=0.992,
-    )
 
-    summary_ax.axis("off")
-    for ax in axes:
+    ax_backlog  = axes[0][0]
+    ax_complete = axes[0][1]
+    ax_reward   = axes[1][0]
+    ax_runway   = axes[1][1]
+
+    for ax in [ax_backlog, ax_complete, ax_reward, ax_runway]:
         _style(ax)
 
     for trace in traces:
         color = colors.get(trace.name, "#555")
         steps = np.array(trace.steps)
-        axes[0].plot(steps, trace.backlog, color=color, linewidth=2, label=trace.name)
-        axes[1].plot(steps, trace.completed, color=color, linewidth=2, label=trace.name)
-        axes[2].plot(steps, trace.runway_queue, color=color, linewidth=2, label=trace.name)
-        axes[3].plot(steps, trace.cumulative_reward, color=color, linewidth=2, label=trace.name)
+        lw = 2.0
+        ax_backlog.plot(steps,  trace.backlog,            color=color, linewidth=lw, label=trace.name)
+        ax_complete.plot(steps, trace.completed,           color=color, linewidth=lw, label=trace.name)
+        ax_reward.plot(steps,   trace.cumulative_reward,   color=color, linewidth=lw, label=trace.name)
+        ax_runway.plot(steps,   trace.runway_queue,        color=color, linewidth=lw, label=trace.name)
 
-    axes[0].set_ylabel("Backlog")
-    axes[1].set_ylabel("Completed")
-    axes[2].set_ylabel("Runway Queue")
-    axes[3].set_ylabel("Cumulative Reward")
-    axes[3].set_xlabel("Timestep")
-    axes[2].set_yticks([0, 1])
-    axes[3].axhline(0, color="#333", linewidth=0.8, linestyle="--", alpha=0.5)
+    ax_backlog.set_ylabel("Backlog",            fontsize=10)
+    ax_complete.set_ylabel("Completed demand",  fontsize=10)
+    ax_reward.set_ylabel("Cumulative reward",   fontsize=10)
+    ax_runway.set_ylabel("Runway queue",        fontsize=10)
 
-    for ax in axes:
+    for ax in [ax_reward, ax_runway]:
+        ax.set_xlabel("Timestep", fontsize=10)
+
+    ax_runway.set_yticks([0, 1])
+    ax_reward.axhline(0, color="#333", linewidth=0.8, linestyle="--", alpha=0.5)
+
+    for ax in [ax_backlog, ax_complete, ax_reward, ax_runway]:
         _shade_burst_phases(ax)
 
-    summary_lines = []
-    for trace in traces:
-        metrics = trace.final_metrics
-        summary_lines.append(
-            f"{trace.name}: reward={trace.total_reward:.1f}, "
-            f"done={metrics['completed_total']:.0f}/{metrics['generated_total']:.0f}, "
-            f"unserved={metrics['unserved_total']:.0f}, "
-            f"incl-delay={metrics['mean_demand_delay_including_unserved']:.1f}, "
-            f"timeout={'yes' if trace.timeout else 'no'}"
-        )
-    summary_ax.text(
-        0.015,
-        0.70,
-        "\n".join(summary_lines),
-        transform=summary_ax.transAxes,
-        fontsize=9,
-        va="center",
-        ha="left",
-        bbox={"facecolor": "white", "edgecolor": "#d5d8dc", "alpha": 0.95},
-    )
-
-    handles, labels = axes[0].get_legend_handles_labels()
+    handles, labels = ax_backlog.get_legend_handles_labels()
     fig.legend(
-        handles,
-        labels,
+        handles, labels,
         loc="lower center",
-        bbox_to_anchor=(0.5, 0.015),
-        ncol=4,
+        bbox_to_anchor=(0.5, 0.01),
+        ncol=len(traces),
         fontsize=9,
         framealpha=0.95,
         edgecolor="#ccc",
     )
 
-    out_path = os.path.join(OUT_DIR, f"{SCENARIO}_rollout_seed{SEED}.png")
-    plt.tight_layout(rect=[0, 0.05, 1, 0.965])
+    plt.tight_layout(rect=[0, 0.06, 1, 1])
+    # Save to same filename as the committed figure so it replaces it
+    out_path = os.path.join(OUT_DIR, "poisson_burst_report_rollout_flat.png")
     fig.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return out_path
@@ -233,16 +206,12 @@ def main() -> None:
         run_baseline_trace("ConflictAware", conflict_aware_policy),
         run_baseline_trace("RunwayAware", runway_aware_policy),
         run_maskable_ppo_trace(
-            "PPO features seed0",
+            "PPO features",
             "experiments/models/ppo_poisson_mix_features_maskable_seed0.zip",
         ),
         run_maskable_ppo_trace(
-            "PPO features seed1",
-            "experiments/models/ppo_poisson_mix_features_maskable_seed1.zip",
-        ),
-        run_maskable_ppo_trace(
-            "PPO features+hold seed1",
-            "experiments/models/ppo_poisson_mix_features_hold_long_maskable_seed1.zip",
+            "PPO features+hold",
+            "experiments/models/ppo_poisson_mix_features_hold_long_maskable_seed0.zip",
             strategic_noop=True,
         ),
     ]
