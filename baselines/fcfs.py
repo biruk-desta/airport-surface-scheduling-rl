@@ -10,7 +10,6 @@ def _can_move(ac: dict, state: dict) -> bool:
     next_pos = ac["next_position"]
 
     # Block moves into any currently-occupied intersection.
-    # Driven entirely by INTERSECTION_NODES — scales to any number of intersections.
     if next_pos in INTERSECTION_NODES and next_pos in state["occupied_intersections"]:
         return False
 

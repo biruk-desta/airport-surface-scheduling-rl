@@ -22,9 +22,7 @@ RESULTS_DIR = "experiments/results"
 OUT_DIR     = "experiments/figures"
 
 
-# ---------------------------------------------------------------------------
 # Data loading
-# ---------------------------------------------------------------------------
 def load_experiment(exp_id: str) -> dict:
     """Returns {scenario: {policy: {metric: np.ndarray}}}"""
     path = os.path.join(RESULTS_DIR, f"{exp_id}.csv")
@@ -67,9 +65,7 @@ def load_experiment(exp_id: str) -> dict:
     return data
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 def _color(policy: str) -> str:
     return POLICY_COLORS.get(policy, DEFAULT_COLOR)
 
@@ -102,9 +98,7 @@ def _set_axis_margin(ax, values: list[float], errors: list[float]) -> None:
     ax.set_ylim(ymin - 0.08 * span, ymax + 0.16 * span)
 
 
-# ---------------------------------------------------------------------------
 # Per-experiment figure: 3-panel (reward, completions, steps)
-# ---------------------------------------------------------------------------
 def plot_experiment(exp: dict, data: dict):
     if not data:
         print(f"  [skip] {exp['id']} — no data (run evaluate.py first)")
@@ -203,9 +197,38 @@ def plot_experiment(exp: dict, data: dict):
     _save(fig, f"{exp['id']}_results.png")
 
 
-# ---------------------------------------------------------------------------
 # Learning curve (reads TensorBoard logs)
-# ---------------------------------------------------------------------------
+
+# Maps tb_logs directory name and colors
+TB_RUN_LABELS = {
+    "PPO_13":          "PPO default — Exp1 (500k)",
+    "MaskablePPO_1":   "PPO v2_stoch — Exp2 (1M)",
+    "MaskablePPO_2":   "PPO v2_variable — Exp3 (1M)",
+    "MaskablePPO_3":   "PPO route_choice_trap — Exp4 (1M)",
+    "MaskablePPO_4":   "PPO route_choice_mix — Exp4 (1M)",
+    "MaskablePPO_5":   "PPO poisson_burst — Exp5 (300k)",
+    "MaskablePPO_6":   "PPO poisson_mix_obs — Exp5 (300k)",
+    "MaskablePPO_7":   "PPO poisson_features — Exp5 (300k)",
+    "MaskablePPO_8":   "PPO poisson_features+hold — Exp5 (300k)",
+    "MaskablePPO_9":   "PPO poisson_features+hold — rerun (300k)",
+    "MaskablePPO_10":  "PPO poisson_features — rerun (300k)",
+}
+
+TB_RUN_COLORS = {
+    "PPO_13":          "#2980b9",   # Exp1 — blue
+    "MaskablePPO_1":   "#9b59b6",   # Exp2 — purple
+    "MaskablePPO_2":   "#e74c3c",   # Exp3 — red
+    "MaskablePPO_3":   "#2e86c1",   # Exp4 trap — steel blue
+    "MaskablePPO_4":   "#7d3c98",   # Exp4 mix — dark purple
+    "MaskablePPO_5":   "#d35400",   # Exp5 burst — orange
+    "MaskablePPO_6":   "#ba4a00",   # Exp5 mix obs — dark orange
+    "MaskablePPO_7":   "#922b21",   # Exp5 features — dark red
+    "MaskablePPO_8":   "#1a5276",   # Exp5 features+hold — dark blue
+    "MaskablePPO_9":   "#7fb3d3",   # rerun — light blue
+    "MaskablePPO_10":  "#f0b27a",   # rerun — light orange
+}
+
+
 def plot_learning_curve():
     try:
         from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
@@ -224,7 +247,7 @@ def plot_learning_curve():
         if os.path.isdir(os.path.join(tb_dir, d))
     )
 
-    fig, ax = plt.subplots(figsize=(8, 4.5))
+    fig, ax = plt.subplots(figsize=(11, 5))
     fig.patch.set_facecolor("white")
     _style_ax(ax)
 
@@ -235,9 +258,11 @@ def plot_learning_curve():
         if "rollout/ep_rew_mean" not in ea.Tags().get("scalars", []):
             continue
         events = ea.Scalars("rollout/ep_rew_mean")
-        label  = os.path.basename(run_dir)
+        run_name = os.path.basename(run_dir)
+        label = TB_RUN_LABELS.get(run_name, run_name)
+        color = TB_RUN_COLORS.get(run_name, DEFAULT_COLOR)
         ax.plot([e.step for e in events], [e.value for e in events],
-                linewidth=1.6, label=label)
+                linewidth=1.6, label=label, color=color)
         plotted = True
 
     if not plotted:
@@ -248,16 +273,15 @@ def plot_learning_curve():
     ax.axhline(0, color="#333", linewidth=0.8, linestyle="--", alpha=0.4)
     ax.set_xlabel("Training Timesteps", fontsize=11)
     ax.set_ylabel("Mean Episode Reward", fontsize=11)
-    ax.set_title("PPO Learning Curves", fontsize=12, fontweight="bold")
+    ax.set_title("Training Curves — All Models", fontsize=12, fontweight="bold")
     ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: f"{int(v/1000)}k"))
-    ax.legend(fontsize=8, framealpha=0.9, edgecolor="#ccc")
+    ax.legend(fontsize=8, framealpha=0.9, edgecolor="#ccc",
+              loc="upper left", bbox_to_anchor=(1.01, 1), borderaxespad=0)
     plt.tight_layout()
     _save(fig, "learning_curves.png")
 
 
-# ---------------------------------------------------------------------------
 # Entry point
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     os.makedirs(OUT_DIR, exist_ok=True)
 

@@ -44,9 +44,7 @@ from dataclasses import dataclass, field
 from collections.abc import Iterable
 from typing import Dict, List, Optional, Set, Tuple
 
-# ---------------------------------------------------------------------------
 # Node IDs
-# ---------------------------------------------------------------------------
 GATE_A         = 0
 GATE_B         = 1
 GATE_C         = 2
@@ -142,9 +140,7 @@ def decode_action(action: int) -> tuple[int, int] | None:
     return x // MAX_CHOICES_PER_AIRCRAFT, x % MAX_CHOICES_PER_AIRCRAFT
 
 
-# ---------------------------------------------------------------------------
 # Aircraft
-# ---------------------------------------------------------------------------
 @dataclass
 class DemandRequest:
     global_id: int
@@ -203,9 +199,7 @@ class Aircraft:
         return self.position == RUNWAY_SERVICE and self.runway_service_end is not None
 
 
-# ---------------------------------------------------------------------------
 # Simulator
-# ---------------------------------------------------------------------------
 class AirportSimulator:
     """
     Plain Python simulator for the airport surface MDP.
@@ -279,8 +273,7 @@ class AirportSimulator:
     STOCHASTIC_SCENARIOS: Set[str] = {"v2_stoch", "v2_heavy", "v2_variable"}
 
     # Variable-count scenarios: (min_aircraft, max_aircraft) sampled each reset.
-    # Pool is sliced to [:N] so the ordering in SCENARIOS controls composition.
-    # To extend the range, just change the tuple here.
+    # Pool sliced to [:N]; ordering in SCENARIOS controls aircraft composition.
     VARIABLE_COUNT_RANGE: Dict[str, tuple] = {
         "variable":    (2, 4),   # covers dep_only → heavy
         "v2_variable": (3, 5),   # covers v2_det → v2_heavy
@@ -311,9 +304,7 @@ class AirportSimulator:
         self.max_arrival_backlog = 0
         self.poisson_profile = scenario
 
-    # ------------------------------------------------------------------
     # Core API
-    # ------------------------------------------------------------------
     def reset(self, seed: int | None = None) -> Dict:
         if seed is not None:
             self._rng = _random.Random(seed)
@@ -356,11 +347,6 @@ class AirportSimulator:
                 spawns = pool
         self.aircraft = []
         for i, k in enumerate(spawns):
-            route_options = list(ROUTE_OPTIONS.get(k, []))
-            if route_options:
-                path = [ROUTES[route_options[0]][0]]
-            else:
-                path = list(ROUTES[k])
             if ready_steps is not None and i < len(ready_steps):
                 ready_step = ready_steps[i]
             elif stochastic:
@@ -651,9 +637,7 @@ class AirportSimulator:
             return RUNWAY_QUEUE_PENALTY
         return TAXI_HOLD_PENALTY
 
-    # ------------------------------------------------------------------
     # Transition logic
-    # ------------------------------------------------------------------
     def action_result(self, action: int) -> str:
         """Return the result an action would have without mutating state."""
         assert 0 <= action < ACTION_SPACE_SIZE, \
@@ -858,9 +842,7 @@ class AirportSimulator:
         return sum(max(0, self.step_count - req.generated_step) for req in self.departure_backlog) + \
             sum(max(0, self.step_count - req.generated_step) for req in self.arrival_backlog)
 
-    # ------------------------------------------------------------------
     # State
-    # ------------------------------------------------------------------
     def _get_state(self) -> Dict:
         aircraft_states = []
         for i in range(MAX_AIRCRAFT):
@@ -1003,8 +985,7 @@ class AirportSimulator:
                     "bypass_action":  encode_action(i, CHOICE_BYPASS),
                 })
 
-        # Set of intersection node IDs currently occupied by a ready, non-done aircraft.
-        # Adding a new intersection to INTERSECTION_NODES is all that's needed to extend this.
+        # Intersection node IDs currently occupied by a ready, non-done aircraft.
         occupied_intersections: Set[int] = {
             ac.position
             for ac in self.aircraft
@@ -1096,9 +1077,7 @@ class AirportSimulator:
             "legal_actions":           self.legal_actions(include_noop=False),
         }
 
-    # ------------------------------------------------------------------
     # Rendering
-    # ------------------------------------------------------------------
     def render(self, state: Dict | None = None) -> None:
         if state is None:
             state = self._get_state()
@@ -1131,9 +1110,7 @@ class AirportSimulator:
                 )
 
 
-# ---------------------------------------------------------------------------
 # Quick smoke tests
-# ---------------------------------------------------------------------------
 def run_basic_test() -> None:
     """Verify core mechanics: conflict detection, completion, timeout."""
     print("=== BASIC TEST (default: dep_a, dep_b, arrival) ===\n")

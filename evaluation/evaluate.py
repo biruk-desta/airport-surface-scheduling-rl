@@ -164,9 +164,7 @@ def episode_metrics(sim: AirportSimulator) -> dict:
     }
 
 
-# ---------------------------------------------------------------------------
 # Runners
-# ---------------------------------------------------------------------------
 def run_baseline(policy_fn, scenario: str, seeds: list[int] | None = None) -> list[dict]:
     if seeds is None:
         seeds = seeds_for_scenario(scenario)
@@ -311,9 +309,7 @@ def load_policy_checkpoints(name: str):
     return loaded
 
 
-# ---------------------------------------------------------------------------
 # CSV helpers
-# ---------------------------------------------------------------------------
 FIELDNAMES = ["experiment", "scenario", "policy", "episode", "seed", "train_seed",
               "total_reward", "steps", "conflicts", "illegal_moves",
               "noop_count", "noop_when_legal_count", "noop_when_no_legal_action_count",
@@ -387,9 +383,7 @@ def save_experiment_csv(exp_id: str, data: dict) -> str:
     return path
 
 
-# ---------------------------------------------------------------------------
 # Main
-# ---------------------------------------------------------------------------
 def main():
     os.makedirs(RESULTS_DIR, exist_ok=True)
 

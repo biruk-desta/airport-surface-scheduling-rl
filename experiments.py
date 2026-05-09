@@ -16,11 +16,9 @@ from training.config import (
     POISSON_LONG_CONFIG,
 )
 
-# ---------------------------------------------------------------------------
 # Models — trained once, reused across experiments.
 # name → {scenario, config, label}
 # Checkpoint saved to experiments/<name>.zip
-# ---------------------------------------------------------------------------
 MODELS = {
     "ppo_default": {
         "scenario": "default",
@@ -83,9 +81,7 @@ MODELS = {
 
 CHECKPOINT_DIR = "experiments/models"
 
-# ---------------------------------------------------------------------------
 # Scenario display labels — used by evaluate and plots.
-# ---------------------------------------------------------------------------
 SCENARIO_LABELS = {
     "dep_only": "Low\n(2 aircraft)",
     "default":  "Medium\n(3 aircraft)",
@@ -103,10 +99,7 @@ SCENARIO_LABELS = {
     "poisson_train_mix": "Poisson\ntrain mix",
 }
 
-# ---------------------------------------------------------------------------
 # Policy display names and colors — used by plots.
-# Add a new model key here when adding to MODELS.
-# ---------------------------------------------------------------------------
 POLICY_DISPLAY = {
     "FCFS":             "FCFS",
     "ConflictAware":    "Conflict-Aware",
@@ -166,11 +159,9 @@ POLICY_COLORS = {
 
 DEFAULT_COLOR = "#95a5a6"
 
-# ---------------------------------------------------------------------------
 # Experiments — define what to compare and where.
 # ppo_models: list of model keys from MODELS to include.
 # Results saved to experiments/results_<id>.csv
-# ---------------------------------------------------------------------------
 EXPERIMENTS = [
     {
         "id":             "exp1",

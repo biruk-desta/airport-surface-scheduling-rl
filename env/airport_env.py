@@ -123,9 +123,7 @@ class AirportEnv(gym.Env):
         )
         self.action_space = spaces.Discrete(ACTION_SPACE_SIZE)
 
-    # ------------------------------------------------------------------
     # Gymnasium API
-    # ------------------------------------------------------------------
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         super().reset(seed=seed)
         state = self._sim.reset(seed=seed)
@@ -157,9 +155,7 @@ class AirportEnv(gym.Env):
             mask[0] = True
         return mask
 
-    # ------------------------------------------------------------------
     # Observation encoding
-    # ------------------------------------------------------------------
     def _encode(self, state: dict) -> np.ndarray:
         if self.obs_mode == "poisson_features":
             return self._encode_poisson_features(state)

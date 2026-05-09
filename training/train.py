@@ -1,10 +1,8 @@
-"""Training entry point for the airport-surface benchmark.
-
-RL algorithms are imported from Stable-Baselines3 and SB3-Contrib:
-PPO is provided by ``stable_baselines3`` and MaskablePPO is provided by
-``sb3_contrib``. The simulator, Gymnasium wrapper, action masks, scenarios,
-baselines, metrics, and evaluation scripts are project-specific code.
-"""
+# Training entry point for the airport surface scheduling benchmark.
+#
+# PPO and MaskablePPO are off-the-shelf implementations from Stable-Baselines3
+# and SB3-Contrib respectively. All other code (simulator, environment wrapper,
+# baselines, evaluation, obs encoding, reward shaping) is original project work.
 
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
